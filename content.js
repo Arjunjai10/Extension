@@ -325,7 +325,7 @@ function maybeLogDiagnostic() {
 
 function evaluateAndAct() {
   if (!enabled) {
-    setBadge("Showdown Test Bot: OFF", "#888");
+    setBadge("Bot is disabled", "off");
     return;
   }
 
@@ -342,13 +342,13 @@ function evaluateAndAct() {
 
     if (allButtons.length === 0) {
       lastActedSignature = null;
-      setBadge("Showdown Test Bot: ON — waiting for your turn", "#f0ad4e");
+      setBadge("Waiting for your turn", "waiting");
       maybeLogDiagnostic();
       return;
     }
 
     lastFoundAnyAt = Date.now();
-    setBadge("Showdown Test Bot: ON — buttons found", "#5cb85c");
+    setBadge("Buttons detected — choosing", "active");
 
     const signature = signatureFor(allButtons);
     if (signature === lastActedSignature) {
@@ -381,15 +381,15 @@ function evaluateAndAct() {
     setTimeout(() => {
       try {
         chosen.click();
-        setBadge(`Showdown Test Bot: clicked "${label}"`, "#5cb85c");
+        setBadge(`Clicked: ${label}`, "active");
       } catch (err) {
         log(`ERROR clicking button: ${err.message}\n${err.stack}`);
-        setBadge("Showdown Test Bot: click FAILED — see log", "#d9534f");
+        setBadge("Click failed — see log", "error");
       }
     }, delay);
   } catch (err) {
     log(`ERROR in evaluateAndAct: ${err.message}\n${err.stack}`);
-    setBadge("Showdown Test Bot: ERROR — see log", "#d9534f");
+    setBadge("Unexpected error — see log", "error");
   }
 }
 
