@@ -28,9 +28,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SELECTOR_VERSION   = "2025-07-19";
-const ACTION_DELAY_MS    = [250, 700];
+const ACTION_DELAY_MS    = [300, 600]; // tighter range — less idle wait
 const STUCK_THRESHOLD_MS = 10_000;
-const SCORE_BUDGET_MS    = 60;
+const SCORE_BUDGET_MS    = 40;         // abort scoring early on slow CPUs
+const POLL_INTERVAL_MS   = 1500;       // 1.5 s — gentler than 1 s on weak hardware
 
 // 3-tier selector sets (primary → fallback → attribute-only)
 const SELECTOR_TIERS = {
@@ -356,11 +357,11 @@ function scoreMoves(buttons, state) {
 function chooseBestMove(buttons, state) {
   const scored = scoreMoves(buttons, state);
 
-  // Log scoring results for debugging
-  const summary = scored
-    .map(s => `${s.name}(${s.score})`)
-    .join(", ");
-  log(`Scoring moves: [${summary}] | Opp: ${state.oppName ?? "?"} ${(state.oppTypes ?? []).join("/")} | HP: ${Math.round((state.oppHpPct ?? 1) * 100)}%`);
+  // Defer the log string build — never block the click on slow CPUs
+  setTimeout(() => {
+    const summary = scored.map(s => `${s.name}(${s.score})`).join(", ");
+    log(`Scoring: [${summary}] opp=${state.oppName ?? "?"} ${(state.oppTypes ?? []).join("/")} hp=${Math.round((state.oppHpPct ?? 1) * 100)}%`);
+  }, 0);
 
   // Sort descending; filter out immune (-999) if alternatives exist
   const valid = scored.filter(s => s.score > -999);
@@ -382,8 +383,13 @@ function randomChoice(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
+// Cheap signature: use button value/name/data-move — avoid outerHTML which
+// serialises entire DOM subtrees and is expensive on large button markup.
 function signatureFor(buttons) {
-  return buttons.map((b) => b.outerHTML).join("|");
+  return buttons.map(b =>
+    b.value || b.dataset.move || b.dataset.switch ||
+    b.name  || b.textContent.trim().slice(0, 24)
+  ).join("|");
 }
 
 // Handle multi-target selection in Doubles/FFA after a move is clicked
@@ -631,23 +637,33 @@ function evaluateAndAct() {
 // TRIGGERS — MutationObserver + 1s poll
 // ─────────────────────────────────────────────────────────────────────────────
 
-let scheduled = false;
+// Debounce: coalesce rapid DOM bursts into a single evaluation.
+// Showdown's chat/animations fire hundreds of mutations/sec — queueMicrotask
+// would run synchronously after every burst. A 200 ms setTimeout lets the
+// browser finish its render work first, keeping weak CPUs responsive.
+let _debounceTimer = null;
 function scheduleEvaluate() {
-  if (scheduled) return;
-  scheduled = true;
-  queueMicrotask(() => {
-    scheduled = false;
+  if (_debounceTimer !== null) return;       // already pending
+  _debounceTimer = setTimeout(() => {
+    _debounceTimer = null;
     evaluateAndAct();
-  });
+  }, 200);
 }
 
-const observer    = new MutationObserver(() => scheduleEvaluate());
-observer.observe(document.body, { childList: true, subtree: true });
+// Only watch structural changes (childList). Excluding attributes and
+// characterData halves the number of observer callbacks on Showdown.
+const observer = new MutationObserver(() => scheduleEvaluate());
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+  attributes: false,
+  characterData: false,
+});
 
 const pollInterval = setInterval(() => {
   if (!ctxAlive()) { teardown(); return; }
   evaluateAndAct();
-}, 1000);
+}, POLL_INTERVAL_MS);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEARDOWN — graceful shutdown on extension reload/update
