@@ -1,217 +1,279 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Showdown Test Bot</title>
+  <title>Showdown Bot</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #111318;
+      --surface:     #1a1d24;
+      --surface-2:   #21252e;
+      --border:      #2a2f3a;
+      --border-focus:#3d4455;
+      --text-primary:#f0f2f5;
+      --text-secondary:#8b92a0;
+      --text-muted:  #555d6b;
+      --accent:      #5b6af0;
+      --accent-soft: rgba(91,106,240,0.12);
+      --accent-border:rgba(91,106,240,0.3);
+      --green:       #34c77b;
+      --green-soft:  rgba(52,199,123,0.12);
+      --amber:       #f5a623;
+      --amber-soft:  rgba(245,166,35,0.08);
+      --amber-border:rgba(245,166,35,0.2);
+      --red:         #ef4444;
+      --red-soft:    rgba(239,68,68,0.08);
+      --red-border:  rgba(239,68,68,0.2);
+      --radius-sm:   6px;
+      --radius:      10px;
+      --radius-lg:   14px;
     }
 
     body {
-      font-family: 'Inter', system-ui, sans-serif;
-      width: 300px;
-      background: #0f0f1a;
-      color: #e2e8f0;
-      overflow: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      width: 320px;
+      background: var(--bg);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Header ── */
+    /* ── HEADER ─────────────────────────────── */
     .header {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-      padding: 16px 18px 14px;
-      position: relative;
-      border-bottom: 1px solid rgba(255,255,255,0.07);
-    }
-
-    .header::before {
-      content: '';
-      position: absolute;
-      top: -30px; right: -30px;
-      width: 100px; height: 100px;
-      background: radial-gradient(circle, rgba(99,102,241,0.3) 0%, transparent 70%);
-      pointer-events: none;
-    }
-
-    .header-top {
+      padding: 18px 18px 16px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 4px;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
     }
 
-    .pokeball-icon {
-      width: 28px;
-      height: 28px;
+    .logo {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
     }
 
-    .pokeball-icon svg circle,
-    .pokeball-icon svg path {
-      transition: all 0.3s ease;
+    .logo svg {
+      width: 20px;
+      height: 20px;
     }
 
-    h1 {
-      font-size: 15px;
-      font-weight: 700;
-      color: #f1f5f9;
-      letter-spacing: -0.3px;
+    .header-text {
+      flex: 1;
+      min-width: 0;
     }
 
-    .version-badge {
-      margin-left: auto;
+    .header-text h1 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.2px;
+      line-height: 1.2;
+    }
+
+    .header-text p {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      line-height: 1;
+    }
+
+    .version {
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 9px;
+      flex-shrink: 0;
+    }
+
+    /* ── SECTIONS ────────────────────────────── */
+    .section {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section:last-child {
+      border-bottom: none;
+    }
+
+    .section-label {
       font-size: 10px;
       font-weight: 600;
-      color: #818cf8;
-      background: rgba(99,102,241,0.15);
-      border: 1px solid rgba(99,102,241,0.3);
-      border-radius: 20px;
-      padding: 2px 8px;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
     }
 
-    .subtitle {
-      font-size: 11px;
-      color: #64748b;
-      padding-left: 38px;
-    }
-
-    /* ── Body ── */
-    .body {
-      padding: 14px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    /* ── Warning Banner ── */
-    .warning {
+    /* ── NOTICE ──────────────────────────────── */
+    .notice {
       display: flex;
       align-items: flex-start;
-      gap: 8px;
-      background: rgba(251,191,36,0.08);
-      border: 1px solid rgba(251,191,36,0.25);
-      border-radius: 8px;
-      padding: 9px 10px;
+      gap: 10px;
+      background: var(--amber-soft);
+      border: 1px solid var(--amber-border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
     }
 
-    .warning-icon {
-      font-size: 14px;
+    .notice-icon {
+      width: 14px;
+      height: 14px;
       flex-shrink: 0;
       margin-top: 1px;
+      color: var(--amber);
     }
 
-    .warning p {
-      font-size: 11px;
-      color: #fbbf24;
-      line-height: 1.5;
+    .notice p {
+      font-size: 11.5px;
+      color: var(--amber);
+      line-height: 1.55;
     }
 
-    /* ── Toggle Card ── */
-    .toggle-card {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px;
-      padding: 12px 14px;
+    .notice strong {
+      font-weight: 600;
+    }
+
+    /* ── TOGGLE ROW ──────────────────────────── */
+    .toggle-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      cursor: pointer;
-      transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
-      user-select: none;
+      gap: 12px;
     }
 
-    .toggle-card:hover {
-      background: rgba(255,255,255,0.07);
-      border-color: rgba(99,102,241,0.35);
+    .toggle-info {
+      min-width: 0;
     }
 
-    .toggle-card.active {
-      background: rgba(99,102,241,0.1);
-      border-color: rgba(99,102,241,0.4);
-      box-shadow: 0 0 14px rgba(99,102,241,0.15);
+    .toggle-info .label {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.2;
     }
 
-    .toggle-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    .toggle-info .sublabel {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 3px;
     }
 
-    .toggle-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #475569;
-      transition: background 0.3s, box-shadow 0.3s;
+    /* iOS-style toggle switch */
+    .switch {
+      position: relative;
+      width: 44px;
+      height: 26px;
       flex-shrink: 0;
     }
 
-    .toggle-card.active .toggle-dot {
-      background: #4ade80;
-      box-shadow: 0 0 6px rgba(74,222,128,0.6);
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
     }
 
-    .toggle-label {
-      font-size: 13px;
-      font-weight: 500;
-      color: #cbd5e1;
-      transition: color 0.2s;
+    .switch-track {
+      position: absolute;
+      inset: 0;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      cursor: pointer;
+      transition: background 0.25s ease, border-color 0.25s ease;
     }
 
-    .toggle-card.active .toggle-label {
-      color: #f1f5f9;
+    .switch-track::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: transform 0.25s cubic-bezier(.4,0,.2,1), background 0.25s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
     }
 
-    .toggle-state {
+    .switch input:checked + .switch-track {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .switch input:checked + .switch-track::after {
+      transform: translateX(18px);
+      background: #fff;
+    }
+
+    /* Status pill */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
       font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      color: #475569;
-      transition: color 0.2s;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-top: 12px;
+      padding: 5px 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      transition: color 0.2s, border-color 0.2s;
     }
 
-    .toggle-card.active .toggle-state {
-      color: #4ade80;
+    .status-pill.active {
+      color: var(--green);
+      border-color: rgba(52,199,123,0.3);
+      background: var(--green-soft);
     }
 
-    /* Hidden real checkbox */
-    #enabledToggle {
-      display: none;
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
     }
 
-    /* ── Log Stats ── */
-    .stats-row {
+    /* ── LOG STATS ───────────────────────────── */
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
       display: flex;
       align-items: center;
-      gap: 8px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 8px;
-      padding: 8px 12px;
+      justify-content: space-between;
     }
 
-    .stats-icon {
+    .stat-card .stat-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    #logCount {
       font-size: 13px;
-    }
-
-    #status {
-      font-size: 11.5px;
-      color: #94a3b8;
-      flex: 1;
-    }
-
-    #status span {
-      color: #818cf8;
       font-weight: 600;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
     }
 
-    /* ── Buttons ── */
-    .btn-group {
+    /* ── BUTTONS ─────────────────────────────── */
+    .btn-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
@@ -221,138 +283,146 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 9px 12px;
-      border-radius: 8px;
-      border: 1px solid transparent;
+      gap: 7px;
+      padding: 9px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface);
       font-family: inherit;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 500;
+      color: var(--text-secondary);
       cursor: pointer;
-      transition: all 0.2s;
-      letter-spacing: 0.2px;
+      transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+      letter-spacing: 0.1px;
+      white-space: nowrap;
     }
 
-    .btn-export {
-      background: rgba(99,102,241,0.15);
-      border-color: rgba(99,102,241,0.35);
-      color: #a5b4fc;
-    }
-
-    .btn-export:hover {
-      background: rgba(99,102,241,0.25);
-      border-color: rgba(99,102,241,0.6);
-      color: #c7d2fe;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(99,102,241,0.2);
-    }
-
-    .btn-clear {
-      background: rgba(239,68,68,0.1);
-      border-color: rgba(239,68,68,0.25);
-      color: #fca5a5;
-    }
-
-    .btn-clear:hover {
-      background: rgba(239,68,68,0.2);
-      border-color: rgba(239,68,68,0.5);
-      color: #fecaca;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(239,68,68,0.15);
+    .btn:hover {
+      background: var(--surface-2);
+      border-color: var(--border-focus);
+      color: var(--text-primary);
     }
 
     .btn:active {
-      transform: translateY(0px) scale(0.97);
+      transform: scale(0.97);
     }
 
-    /* ── Footer ── */
+    .btn-export:hover {
+      border-color: var(--accent-border);
+      color: #818cf8;
+      background: var(--accent-soft);
+    }
+
+    .btn-clear:hover {
+      border-color: var(--red-border);
+      color: #f87171;
+      background: var(--red-soft);
+    }
+
+    .btn svg {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+    }
+
+    /* ── FOOTER ──────────────────────────────── */
     .footer {
-      padding: 8px 16px 12px;
-      border-top: 1px solid rgba(255,255,255,0.05);
-      text-align: center;
-      font-size: 10px;
-      color: #334155;
+      padding: 10px 18px 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
-    .footer a {
-      color: #475569;
-      text-decoration: none;
+    .footer span {
+      font-size: 10.5px;
+      color: var(--text-muted);
     }
 
-    /* ── Pulse animation for active state ── */
-    @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 14px rgba(99,102,241,0.15); }
-      50%       { box-shadow: 0 0 22px rgba(99,102,241,0.3); }
-    }
-
-    .toggle-card.active {
-      animation: pulse-glow 2.5s ease-in-out infinite;
+    .footer-dot {
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--border-focus);
     }
   </style>
 </head>
 <body>
 
-  <!-- ── Header ── -->
+  <!-- HEADER -->
   <div class="header">
-    <div class="header-top">
-      <div class="pokeball-icon">
-        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="14" cy="14" r="13" fill="#1e293b" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
-          <!-- top half -->
-          <path d="M1.2 14 A12.8 12.8 0 0 1 26.8 14 Z" fill="#ef4444" opacity="0.85"/>
-          <!-- center band -->
-          <rect x="1" y="12.5" width="26" height="3" fill="#1e293b"/>
-          <!-- center button -->
-          <circle cx="14" cy="14" r="4" fill="#1e293b" stroke="#ef4444" stroke-width="1.5"/>
-          <circle cx="14" cy="14" r="2" fill="#f87171" opacity="0.7"/>
-        </svg>
-      </div>
-      <h1>Showdown Test Bot</h1>
-      <span class="version-badge">v0.1</span>
+    <div class="logo">
+      <!-- Pokéball icon -->
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="10" cy="10" r="9.25" stroke="#5b6af0" stroke-width="1.5"/>
+        <path d="M0.75 10 A9.25 9.25 0 0 1 19.25 10" fill="#5b6af0" opacity="0.35"/>
+        <rect x="0.5" y="9" width="19" height="2" fill="#111318"/>
+        <circle cx="10" cy="10" r="3" fill="#111318" stroke="#5b6af0" stroke-width="1.5"/>
+        <circle cx="10" cy="10" r="1.25" fill="#5b6af0" opacity="0.6"/>
+      </svg>
     </div>
-    <p class="subtitle">Pokémon Showdown automation tool</p>
+    <div class="header-text">
+      <h1>Showdown Bot</h1>
+      <p>Pokémon Showdown automation</p>
+    </div>
+    <span class="version">v0.1.0</span>
   </div>
 
-  <!-- ── Body ── -->
-  <div class="body">
-
-    <!-- Warning -->
-    <div class="warning">
-      <span class="warning-icon">⚠️</span>
-      <p>For <strong>unrated / room-match</strong> battles only. Disable before any ranked ladder play.</p>
+  <!-- NOTICE -->
+  <div class="section">
+    <div class="notice">
+      <svg class="notice-icon" viewBox="0 0 16 16" fill="none">
+        <path d="M8 1.5a6.5 6.5 0 1 0 0 13A6.5 6.5 0 0 0 8 1.5zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8z" fill="currentColor" opacity="0.6"/>
+        <path d="M8 4.75a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4.75zM8 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" fill="currentColor"/>
+      </svg>
+      <p>Intended for <strong>unrated and room-match</strong> battles only. Disable before any ranked or competitive play.</p>
     </div>
+  </div>
 
-    <!-- Toggle -->
-    <div class="toggle-card" id="toggleCard">
-      <div class="toggle-left">
-        <div class="toggle-dot"></div>
-        <span class="toggle-label">Auto-play</span>
+  <!-- AUTOMATION CONTROL -->
+  <div class="section">
+    <div class="section-label">Automation</div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="label">Auto-play moves</div>
+        <div class="sublabel">Automatically selects moves each turn</div>
       </div>
-      <span class="toggle-state" id="toggleState">DISABLED</span>
-      <input type="checkbox" id="enabledToggle" />
+      <label class="switch" title="Toggle auto-play">
+        <input type="checkbox" id="enabledToggle" />
+        <span class="switch-track"></span>
+      </label>
     </div>
-
-    <!-- Log count -->
-    <div class="stats-row">
-      <span class="stats-icon">📋</span>
-      <div id="status">Loading log entries…</div>
+    <div class="status-pill" id="statusPill">
+      <span class="status-dot"></span>
+      <span id="statusText">Inactive</span>
     </div>
+  </div>
 
-    <!-- Action buttons -->
-    <div class="btn-group">
+  <!-- LOG -->
+  <div class="section">
+    <div class="section-label">Diagnostics</div>
+    <div class="stat-card">
+      <span class="stat-label">Log entries stored</span>
+      <span id="logCount">—</span>
+    </div>
+    <div class="btn-row" style="margin-top: 8px;">
       <button class="btn btn-export" id="exportBtn">
-        ⬇ Export Log
+        <svg viewBox="0 0 16 16" fill="none"><path d="M8 1v9M5 7l3 3 3-3M2.5 11v2.5h11V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Export Log
       </button>
       <button class="btn btn-clear" id="clearBtn">
-        🗑 Clear Log
+        <svg viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V2.5h4V4M5.5 4l.5 9M10.5 4l-.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Clear Log
       </button>
     </div>
-
   </div>
 
-  <!-- ── Footer ── -->
+  <!-- FOOTER -->
   <div class="footer">
-    For testing &amp; learning only &mdash; not for competitive play
+    <span>Testing &amp; learning only</span>
+    <div class="footer-dot"></div>
+    <span>Not for ranked play</span>
   </div>
 
   <script src="popup.js"></script>

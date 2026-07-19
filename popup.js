@@ -1,55 +1,53 @@
-const toggle = document.getElementById("enabledToggle");
-const toggleCard = document.getElementById("toggleCard");
-const toggleState = document.getElementById("toggleState");
-const exportBtn = document.getElementById("exportBtn");
-const clearBtn = document.getElementById("clearBtn");
-const status = document.getElementById("status");
+const toggle     = document.getElementById("enabledToggle");
+const statusPill = document.getElementById("statusPill");
+const statusText = document.getElementById("statusText");
+const logCount   = document.getElementById("logCount");
+const exportBtn  = document.getElementById("exportBtn");
+const clearBtn   = document.getElementById("clearBtn");
 
-function updateToggleUI(enabled) {
+function updateStatusUI(enabled) {
   if (enabled) {
-    toggleCard.classList.add("active");
-    toggleState.textContent = "ENABLED";
+    statusPill.classList.add("active");
+    statusText.textContent = "Active — monitoring battles";
   } else {
-    toggleCard.classList.remove("active");
-    toggleState.textContent = "DISABLED";
+    statusPill.classList.remove("active");
+    statusText.textContent = "Inactive";
   }
 }
 
-function updateStatus(count) {
-  if (count === 0) {
-    status.innerHTML = "No log entries stored.";
-  } else {
-    status.innerHTML = `<span>${count}</span> log entr${count === 1 ? "y" : "ies"} stored.`;
-  }
+function updateLogCount(count) {
+  logCount.textContent = count.toLocaleString();
 }
 
+// Load initial state
 chrome.storage.local.get({ enabled: false, bugLog: [] }, (data) => {
   toggle.checked = data.enabled;
-  updateToggleUI(data.enabled);
-  updateStatus(data.bugLog.length);
+  updateStatusUI(data.enabled);
+  updateLogCount(data.bugLog.length);
 });
 
-// Clicking anywhere on the card toggles auto-play
-toggleCard.addEventListener("click", () => {
-  toggle.checked = !toggle.checked;
+// Toggle handler
+toggle.addEventListener("change", () => {
   chrome.storage.local.set({ enabled: toggle.checked });
-  updateToggleUI(toggle.checked);
+  updateStatusUI(toggle.checked);
 });
 
+// Export log
 exportBtn.addEventListener("click", () => {
   chrome.storage.local.get({ bugLog: [] }, (data) => {
     const text = data.bugLog
       .map((e) => `[${e.time}] ${e.message}`)
       .join("\n");
     const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    // Opens the log in a new tab; use Ctrl+S / Cmd+S there to save it as a file.
+    const url  = URL.createObjectURL(blob);
+    // Opens log in a new tab — use Ctrl+S / Cmd+S there to save it.
     window.open(url, "_blank");
   });
 });
 
+// Clear log
 clearBtn.addEventListener("click", () => {
   chrome.storage.local.set({ bugLog: [] }, () => {
-    updateStatus(0);
+    updateLogCount(0);
   });
 });
