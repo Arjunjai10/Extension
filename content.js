@@ -13,7 +13,8 @@
  *   Fallback: random if Dex unavailable or all scores tied
  *
  * Robustness features:
- *   - 3-tier selector fallback with self-healing watchdog
+ *   - Double-injection guard (safe to inject multiple times)
+ *   - 3-tier + catch-all selector fallback
  *   - Lazy window.Dex loader with cache
  *   - In-memory battle memory (opponent types survive sub turns)
  *   - 60 ms computation budget guard
@@ -21,7 +22,18 @@
  *   - Extension context invalidation guard + graceful teardown
  */
 
-"use strict";
+// ── DOUBLE-INJECTION GUARD ────────────────────────────────────────────────────
+// The background service worker may inject this script again after a tab
+// navigates. Bail out immediately if already running to avoid duplicate
+// observers, intervals, and badge elements.
+if (window.__sdbActive) {
+  // Already initialised — nothing to do.
+} else {
+  window.__sdbActive = true;
+  initBot();
+}
+
+function initBot() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -33,26 +45,31 @@ const STUCK_THRESHOLD_MS = 10_000;
 const SCORE_BUDGET_MS    = 40;         // abort scoring early on slow CPUs
 const POLL_INTERVAL_MS   = 1500;       // 1.5 s — gentler than 1 s on weak hardware
 
-// 3-tier selector sets (primary → fallback → attribute-only)
+// 3-tier + catch-all selector sets (primary → fallbacks)
+// Tier 0: official Showdown name= attribute (most reliable)
+// Tier 1: class-based (older markup)
+// Tier 2: data-attribute (newer Preact markup)
+// Tier 3: broad class catch-all (last resort)
 const SELECTOR_TIERS = {
   move: [
-    'button[name="chooseMove"]:not([disabled])',
-    '.movemenu button:not(.disabled)',
-    '[data-move]:not([disabled])',
+    'button[name="chooseMove"]:not([disabled]):not(.disabled)',
+    '.movemenu button:not(.disabled):not([disabled])',
+    'button[data-move]:not([disabled]):not(.disabled)',
+    '.battle-controls .controls button:not([disabled]):not(.disabled):not([name="chooseSwitch"]):not([name="chooseTeamPreview"])',
   ],
   switch: [
-    'button[name="chooseSwitch"]:not([disabled])',
-    '.switchmenu button:not(.disabled)',
-    '[data-switch]:not([disabled])',
+    'button[name="chooseSwitch"]:not([disabled]):not(.disabled)',
+    '.switchmenu button:not(.disabled):not([disabled])',
+    'button[data-switch]:not([disabled]):not(.disabled)',
   ],
   teamPreview: [
-    'button[name="chooseTeamPreview"]:not([disabled])',
-    '.teampreview button',
+    'button[name="chooseTeamPreview"]:not([disabled]):not(.disabled)',
+    '.teampreview button:not([disabled]):not(.disabled)',
   ],
 };
 
-// Consecutive-miss counter per tier — used by selector watchdog
-const selectorHealth = { move: [0, 0, 0], switch: [0, 0, 0] };
+// Miss-count arrays — length must match tier count above
+const selectorHealth = { move: [0, 0, 0, 0], switch: [0, 0, 0] };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GEN 9 TYPE CHART  (attacker → defender → multiplier)
@@ -145,8 +162,20 @@ let _dexCache = null;
 
 function getDex() {
   if (_dexCache) return _dexCache;
-  const dex = window.Dex ?? window.app?.dex ?? window.BattleMovedex ? window : null;
-  if (dex?.moves?.get) { _dexCache = dex; return dex; }
+  // FIX: explicit checks instead of chained ?? to avoid operator-precedence
+  // bug where (a??b??c)?window:null always resolved dex=window when a was truthy.
+  const candidates = [
+    window.Dex,
+    window.app && window.app.dex,
+    window.BattleMovedex,
+  ];
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate.moves === "object" &&
+        typeof candidate.moves.get === "function") {
+      _dexCache = candidate;
+      return _dexCache;
+    }
+  }
   return null;
 }
 
@@ -216,48 +245,38 @@ function detectFormat() {
 // BATTLE STATE READER
 // ─────────────────────────────────────────────────────────────────────────────
 
+// DOM-only opponent detection — no window.app access to avoid interfering
+// with Showdown's internal JS objects (which caused page crashes).
 function readOpponentName() {
-  // Strategy 1: Showdown battle JS object (most accurate)
-  try {
-    const battle = window.app?.curRoom?.battle;
-    if (battle) {
-      const active = battle.p2?.active?.[0] ?? battle.nearSide?.active?.[0];
-      if (active?.speciesState?.name) return active.speciesState.name;
-      if (active?.species?.name)      return active.species.name;
-    }
-  } catch (_) {}
-
-  // Strategy 2: DOM scraping fallbacks
   const selectors = [
-    ".battle-expbar .battle-expbar-item:last-child .nick", // replays
     ".statbar.lstatbar .name",
     ".statbar.lstatbar strong",
+    ".battle .statbar:not(.rstatbar) .name",
     ".rqpoke strong",
-    ".battle-controls .rqpoke",
   ];
   for (const sel of selectors) {
-    const el = document.querySelector(sel);
-    if (el?.textContent?.trim()) return el.textContent.trim();
+    try {
+      const el = document.querySelector(sel);
+      const name = el && el.textContent.trim();
+      if (name && name.length > 1) return name;
+    } catch (_) {}
   }
   return null;
 }
 
 function readOpponentHpPct() {
   try {
-    const battle = window.app?.curRoom?.battle;
-    if (battle) {
-      const active = battle.p2?.active?.[0] ?? battle.nearSide?.active?.[0];
-      if (active && active.maxhp > 0) return active.hp / active.maxhp;
+    // Read the HP bar width rendered by Showdown (safest approach)
+    const bar = document.querySelector(
+      ".statbar.lstatbar .hpbar > div, " +
+      ".battle .statbar:not(.rstatbar) .hpbar > div"
+    );
+    if (bar) {
+      const w = parseFloat(bar.style.width);
+      if (!isNaN(w) && w >= 0) return w / 100;
     }
   } catch (_) {}
-
-  // DOM fallback: read width of hp bar
-  const bar = document.querySelector(".statbar.lstatbar .hpbar > div");
-  if (bar) {
-    const w = parseFloat(bar.style.width);
-    if (!isNaN(w)) return w / 100;
-  }
-  return 1; // assume full HP if unknown
+  return 1; // assume full HP if unreadable
 }
 
 function readBattleState() {
@@ -383,12 +402,16 @@ function randomChoice(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-// Cheap signature: use button value/name/data-move — avoid outerHTML which
-// serialises entire DOM subtrees and is expensive on large button markup.
+// Cheap signature using textContent which includes PP counts ("31/32", "8/8").
+// PP changes each time a move is used, so the signature naturally differs
+// across turns even for the same Pokémon with the same moves.
+// IMPORTANT: do NOT use b.value as primary key — Showdown sets value to the
+// slot index ("1","2","3","4") which is identical every single turn.
 function signatureFor(buttons) {
   return buttons.map(b =>
-    b.value || b.dataset.move || b.dataset.switch ||
-    b.name  || b.textContent.trim().slice(0, 24)
+    b.textContent.trim().replace(/\s+/g, " ").slice(0, 40) ||
+    b.dataset.move || b.dataset.switch ||
+    b.name + ":" + (b.value || "?")
   ).join("|");
 }
 
@@ -538,8 +561,9 @@ function maybeLogDiagnostic() {
 // STATE
 // ─────────────────────────────────────────────────────────────────────────────
 
-let enabled           = false;
+let enabled            = false;
 let lastActedSignature = null;
+let lastActedAt        = 0;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN DECISION LOOP
@@ -573,7 +597,14 @@ function evaluateAndAct() {
     setBadge("Analysing…", "active");
 
     const signature = signatureFor(allButtons);
-    if (signature === lastActedSignature) return; // already acted this turn
+    if (signature === lastActedSignature) {
+      if (Date.now() - lastActedAt > 3000) {
+        log("Turn didn't advance after 3s. Retrying...");
+        lastActedSignature = null;
+      } else {
+        return; // already acted this turn, waiting for server
+      }
+    }
 
     let chosen   = null;
     let category = "";
@@ -592,9 +623,20 @@ function evaluateAndAct() {
       category = `move(t${move.tier})`;
 
     } else if (switches.buttons.length > 0) {
-      chosen   = randomChoice(switches.buttons);
-      category = `switch(t${switches.tier})`;
+      // Filter out fainted Pokemon (Showdown sometimes leaves them clickable but throws an alert)
+      const validSwitches = switches.buttons.filter(b => {
+        const text = b.textContent.toLowerCase();
+        return !text.includes('fainted') && !text.includes('0%') && !b.classList.contains('disabled');
+      });
 
+      if (validSwitches.length > 0) {
+        chosen   = randomChoice(validSwitches);
+        category = `switch(t${switches.tier})`;
+      } else {
+        log("No valid switch options available");
+        lastActedSignature = null;
+        return;
+      }
     } else if (teamPreview.buttons.length > 0) {
       chosen   = teamPreview.buttons[0];
       category = "teampreview";
@@ -603,6 +645,7 @@ function evaluateAndAct() {
     if (!chosen) return;
 
     lastActedSignature = signature;
+    lastActedAt        = Date.now();
     const label = chosen.textContent.trim().replace(/\s+/g, " ");
     log(`Choosing ${category}: "${label}"`);
 
@@ -637,21 +680,19 @@ function evaluateAndAct() {
 // TRIGGERS — MutationObserver + 1s poll
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Debounce: coalesce rapid DOM bursts into a single evaluation.
-// Showdown's chat/animations fire hundreds of mutations/sec — queueMicrotask
-// would run synchronously after every burst. A 200 ms setTimeout lets the
-// browser finish its render work first, keeping weak CPUs responsive.
+// 50ms debounce: collapses rapid DOM bursts (Showdown fires hundreds of
+// mutations/sec) without being slow enough to miss turn windows.
 let _debounceTimer = null;
 function scheduleEvaluate() {
-  if (_debounceTimer !== null) return;       // already pending
+  if (_debounceTimer !== null) return;
   _debounceTimer = setTimeout(() => {
     _debounceTimer = null;
     evaluateAndAct();
-  }, 200);
+  }, 50);
 }
 
-// Only watch structural changes (childList). Excluding attributes and
-// characterData halves the number of observer callbacks on Showdown.
+// Only watch structural changes — excludes attribute/text mutations which
+// are very frequent during Showdown's battle animations.
 const observer = new MutationObserver(() => scheduleEvaluate());
 observer.observe(document.body, {
   childList: true,
@@ -672,6 +713,7 @@ const pollInterval = setInterval(() => {
 function teardown() {
   observer.disconnect();
   clearInterval(pollInterval);
+  if (_debounceTimer !== null) { clearTimeout(_debounceTimer); _debounceTimer = null; }
   const badge = document.getElementById(BADGE_ID);
   if (badge) badge.style.opacity = "0";
   battleMemory.reset();
@@ -708,3 +750,5 @@ if (!ctxAlive()) {
     }
   });
 }
+
+} // end initBot()
